@@ -1,5 +1,6 @@
 package Databaza;
 import java.util.*;
+import java.sql.*;
 import java.io.PrintWriter;
 import java.io.BufferedReader;
 import java.io.FileReader;
@@ -34,6 +35,18 @@ abstract class Zamestnanec {
         this.rokNarodenia = rokNarodenia;
         this.spolupracovnici = new HashMap<>();
     }
+    
+    public Zamestnanec(int id, String meno, String priezvisko, int rokNarodenia) {
+    	this.id = id;
+    	this.meno = meno;
+        this.priezvisko = priezvisko;
+        this.rokNarodenia = rokNarodenia;
+        this.spolupracovnici = new HashMap<>();
+        
+        if (id>= idCounter) {
+        	idCounter = id+1;
+        }
+    }
 
     public int getId() { return id; }
     public String getPriezvisko() { return priezvisko; }
@@ -64,6 +77,10 @@ class DatovyAnalytik extends Zamestnanec {
     
     public DatovyAnalytik(String meno, String priezvisko, int rokNarodenia) {
         super(meno, priezvisko, rokNarodenia);
+    }
+    
+    public DatovyAnalytik(int id, String meno, String priezvisko, int rokNarodenia) {
+    	super(id, meno, priezvisko, rokNarodenia);
     }
 
     @Override
@@ -111,6 +128,10 @@ class BezpecnostnySpecialista extends Zamestnanec {
     public BezpecnostnySpecialista(String meno, String priezvisko, int rokNarodenia) {
         super(meno, priezvisko, rokNarodenia);
     }
+    
+    public BezpecnostnySpecialista(int id, String meno, String priezvisko, int rokNarodenia) {
+    	super(id, meno, priezvisko, rokNarodenia);
+    }
 
     @Override
     public String getNazovSkupiny() { return "Bezpečnostný špecialista"; }
@@ -143,8 +164,108 @@ class BezpecnostnySpecialista extends Zamestnanec {
 public class SpravaZamestnancov {
     private Map<Integer, Zamestnanec> databaza = new HashMap<>();
     private Scanner scanner = new Scanner(System.in);
+    
+    private final String cesta = "jdbc:sqlite:zamestnanci.db";
+    
+    public SpravaZamestnancov() {
+    	inicializace();
+    	
+    }
+    private void inicializace() {
+    	try (Connection conn = DriverManager.getConnection(cesta)){
+    		Statement stmt = conn.createStatement();
+    		stmt.execute("PRAGMA foreign_keys = ON");  		
+    		stmt.execute("CREATE TABLE IF NOT EXISTS zamestnanci (id INTEGER PRIMARY KEY, meno TEXT, priezvisko TEXT, rok INTEGER, skupina TEXT)");
+    		stmt.execute("CREATE TABLE IF NOT EXISTS relace (id1 INTEGER, id2 INTEGER, uroven TEXT, PRIMARY KEY (id1, id2), FOREIGN KEY(id1) REFERENCES zamestnanci(id) ON DELETE CASCADE, FOREIGN KEY(id2) REFERENCES zamestnanci(id) ON DELETE CASCADE)");
+    		
+    		ResultSet a = stmt.executeQuery("SELECT * FROM zamestnanci");
+    		while (a.next()) {
+    			int id = a.getInt("id");
+    			String meno = a.getString("meno");
+    			String priezvisko = a.getString("priezvisko");
+    			int rok = a.getInt("rok");
+    			String skupina = a.getString("skupina");
+    			
+    			Zamestnanec z = null;
+    			
+    			if (skupina.equals("Dátový analytik")) {
+    				z = new DatovyAnalytik(id, meno, priezvisko, rok);
+    			}
+    			else {
+    				z = new BezpecnostnySpecialista(id, meno, priezvisko, rok);
+    			}
+    			databaza.put(z.getId(), z);
+    		}
+    		
+    		ResultSet b = stmt.executeQuery("SELECT * FROM relace");
+        	while (b.next()) {
+        		int id1 = b.getInt("id1");
+        		int id2 = b.getInt("id2");
+        		String uroven = b.getString("uroven");
+        		
+        		UrovenSpoluprace uroven_ = null;
+    			uroven_ = UrovenSpoluprace.valueOf(uroven);
+    			databaza.get(id1).pridejSpolupracovnika(id2, uroven_);
+        	}
+    	}
+    	catch(SQLException e ) {
+    		e.printStackTrace();
+    	}
+    	
+    }
+    
+    public void ulozeniDoSQL(Zamestnanec z) {
+    	String sql = "INSERT OR REPLACE INTO zamestnanci (id, meno, priezvisko, rok, skupina) VALUES (?, ?, ?, ?, ?)";
+    	try (Connection conn = DriverManager.getConnection(cesta);
+    			PreparedStatement pstmt = conn.prepareStatement(sql)){
+    		
+    		pstmt.setInt(1, z.getId());
+    		pstmt.setString(2,  z.getMeno());
+    		pstmt.setString(3,  z.getPriezvisko());
+    		pstmt.setInt(4,  z.getRok());
+    		pstmt.setString(5,  z.getNazovSkupiny());
+    		
+    		pstmt.executeUpdate();
+    		
+    	}
+    	catch (SQLException e) {
+    		e.printStackTrace();
+    	}
+    }
+    
+    public void ulozeniRelaceDoSQL(int id1, int id2, UrovenSpoluprace uroven) {
+    	String sql = "INSERT OR REPLACE INTO relace (id1, id2, uroven) VALUES (?, ?, ?)";
+    	try (Connection conn = DriverManager.getConnection(cesta);
+    			PreparedStatement pstmt = conn.prepareStatement(sql)){
+    		pstmt.setInt(1, id1);
+            pstmt.setInt(2, id2);
+            pstmt.setString(3, uroven.name());
+            pstmt.executeUpdate();
+    	}
+    	catch (SQLException e) {
+    		e.printStackTrace();
+    	}
+    }
+    
+    public void smazaniZSQL(int id) {
+    	String sql = "DELETE FROM zamestnanci WHERE id = ?";
+    	try (Connection conn = DriverManager.getConnection(cesta)){
+    		try (Statement stmt = conn.createStatement()) {
+                stmt.execute("PRAGMA foreign_keys = ON");
+            }
+    		try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
+                pstmt.setInt(1, id);
+                pstmt.executeUpdate();
+    		}
+    		databaza.remove(id);
+    	}
+    	catch (SQLException e) {
+            e.printStackTrace();
+        }
+    }
 
     public static void main(String[] args) {
+    	
         SpravaZamestnancov app = new SpravaZamestnancov();
         app.spust();
     }
@@ -204,6 +325,7 @@ public class SpravaZamestnancov {
         }
 
         databaza.put(z.getId(), z);
+        ulozeniDoSQL(z);
         System.out.println("Zamestnanec pridaný s ID: " + z.getId());
     }
 
@@ -243,6 +365,7 @@ public class SpravaZamestnancov {
         }
 
         databaza.get(id1).pridejSpolupracovnika(id2, uroven);
+        ulozeniRelaceDoSQL(id1, id2, uroven);
         System.out.println("Spolupráca úspešne pridaná.");
     }
 
@@ -255,6 +378,7 @@ public class SpravaZamestnancov {
             // Prejsť všetkých zostávajúcich zamestnancov a odstrániť väzby na zmazaného
             for (Zamestnanec z : databaza.values()) {
                 z.odstranSpolupracovnika(id);
+                smazaniZSQL(id);
             }
             System.out.println("Zamestnanec a všetky jeho väzby boli odstránené.");
         } else {
@@ -422,6 +546,7 @@ public class SpravaZamestnancov {
     			databaza.put(zz.getId(), zz);
     			int Id = zz.getId();
     			System.out.println("Zaměstnanec by vytvořen po id: " + Id);
+    			ulozeniDoSQL(zz);
     		int pocet = Integer.parseInt(reader.readLine());
 
     		int nacteno = 0;
@@ -439,6 +564,7 @@ public class SpravaZamestnancov {
     	    			uroven = UrovenSpoluprace.valueOf(urovenSpoluprace);
     	    			databaza.get(Id).pridejSpolupracovnika(z.getId(), uroven);
     	    			nalezeno = true;
+    	    			ulozeniRelaceDoSQL(Id, z.getId(), uroven);
     	    			break;
     	    			}
     				}
