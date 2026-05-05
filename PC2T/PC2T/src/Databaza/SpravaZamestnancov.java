@@ -8,7 +8,6 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.io.File;
 
-// --- ENUMERÁCIE ---
 enum UrovenSpoluprace {
     ZLA(1), PRIEMERNA(2), DOBRA(3);
 
@@ -17,15 +16,13 @@ enum UrovenSpoluprace {
     public int getHodnota() { return hodnota; }
 }
 
-// --- ABSTRAKTNÁ TRIEDA (Spĺňa požiadavku na abstraktnú triedu/rozhranie) ---
 abstract class Zamestnanec {
-    private static int idCounter = 1; // Automatické prideľovanie ID
+    private static int idCounter = 1;
     
     protected int id;
     protected String meno;
     protected String priezvisko;
     protected int rokNarodenia;
-    // Dynamická dátová štruktúra pre evidenciu spolupracovníkov (ID kolegu -> Úroveň)
     protected Map<Integer, UrovenSpoluprace> spolupracovnici;
 
     public Zamestnanec(String meno, String priezvisko, int rokNarodenia) {
@@ -67,12 +64,12 @@ abstract class Zamestnanec {
         System.out.println("  Počet evidovaných spoluprác: " + spolupracovnici.size());
     }
 
-    // Abstraktné metódy, ktoré musia implementovať potomkovia
+
     public abstract String getNazovSkupiny();
     public abstract void spustZrucnost(Map<Integer, Zamestnanec> databaza);
 }
 
-// --- TRIEDY SKUPÍN (Dedičnosť a Polymorfizmus) ---
+
 class DatovyAnalytik extends Zamestnanec {
     
     public DatovyAnalytik(String meno, String priezvisko, int rokNarodenia) {
@@ -102,7 +99,7 @@ class DatovyAnalytik extends Zamestnanec {
             if (kolega == null) continue;
 
             int spolocni = 0;
-            // Prienik mojich spolupracovníkov a spolupracovníkov kolegu
+
             for (int idKoleguOdKolegu : kolega.getSpolupracovnici().keySet()) {
                 if (this.spolupracovnici.containsKey(idKoleguOdKolegu)) {
                     spolocni++;
@@ -151,16 +148,14 @@ class BezpecnostnySpecialista extends Zamestnanec {
 
         double priemernaKvalita = (double) sucetUrovni / spolupracovnici.size();
         
-        // Vlastný algoritmus: Viac ľudí = väčšia plocha útoku. 
-        // Horšia priemerná kvalita (bližšie k 1) = vyššie riziko.
-        // Vzorec: počet_spolupracovníkov * (4.0 - priemerná_kvalita)
+
         double rizikoveSkore = spolupracovnici.size() * (4.0 - priemernaKvalita);
         
         System.out.printf("  Rizikové skóre spolupráce je: %.2f (Priemerná kvalita: %.2f)\n", rizikoveSkore, priemernaKvalita);
     }
 }
 
-// --- HLAVNÁ TRIEDA A LOGIKA APLIKÁCIE ---
+
 public class SpravaZamestnancov {
     private Map<Integer, Zamestnanec> databaza = new HashMap<>();
     private Scanner scanner = new Scanner(System.in);
@@ -303,7 +298,7 @@ public class SpravaZamestnancov {
         }
     }
 
-    // a) Pridanie zamestnanca
+
     private void pridatZamestnanca() {
         System.out.print("Skupina (1 = Analytik, 2 = Špecialista): ");
         String skupina = scanner.nextLine();
@@ -329,7 +324,7 @@ public class SpravaZamestnancov {
         System.out.println("Zamestnanec pridaný s ID: " + z.getId());
     }
 
-    // b) Pridanie spolupráce
+
     private void pridatSpolupracu() {
         System.out.print("ID zamestnanca: ");
         int id1 = Integer.parseInt(scanner.nextLine());
@@ -369,13 +364,13 @@ public class SpravaZamestnancov {
         System.out.println("Spolupráca úspešne pridaná.");
     }
 
-    // c) Odobranie zamestnanca
+
     private void odobratZamestnanca() {
         System.out.print("Zadajte ID zamestnanca na odstránenie: ");
         int id = Integer.parseInt(scanner.nextLine());
 
         if (databaza.remove(id) != null) {
-            // Prejsť všetkých zostávajúcich zamestnancov a odstrániť väzby na zmazaného
+           
             for (Zamestnanec z : databaza.values()) {
                 z.odstranSpolupracovnika(id);
                 smazaniZSQL(id);
@@ -386,7 +381,7 @@ public class SpravaZamestnancov {
         }
     }
 
-    // d) Vyhľadanie zamestnanca podľa ID
+
     private void vyhladatZamestnanca() {
         System.out.print("Zadajte ID zamestnanca: ");
         int id = Integer.parseInt(scanner.nextLine());
@@ -399,7 +394,7 @@ public class SpravaZamestnancov {
         }
     }
 
-    // e) Spustenie zručnosti
+
     private void spustitZrucnost() {
         System.out.print("Zadajte ID zamestnanca: ");
         int id = Integer.parseInt(scanner.nextLine());
@@ -412,18 +407,18 @@ public class SpravaZamestnancov {
         }
     }
 
-    // f) Abecedný výpis v skupinách
+
     private void vypisAbecedne() {
         List<Zamestnanec> analytici = new ArrayList<>();
         List<Zamestnanec> specialisti = new ArrayList<>();
 
-        // Rozdelenie do skupín
+
         for (Zamestnanec z : databaza.values()) {
             if (z instanceof DatovyAnalytik) analytici.add(z);
             else if (z instanceof BezpecnostnySpecialista) specialisti.add(z);
         }
 
-        // Komparátor pre radenie podľa priezviska
+
         Comparator<Zamestnanec> podlaPriezviska = Comparator.comparing(Zamestnanec::getPriezvisko);
         analytici.sort(podlaPriezviska);
         specialisti.sort(podlaPriezviska);
@@ -440,7 +435,7 @@ public class SpravaZamestnancov {
     }
     
     private void statistiky() {
-    	//algoritmus na spočítání průměru spolupráce + základní hodnoty k získání nejvíce vazeb
+
     	int soucet = 0;
     	int pocet = 0;
     	int nejvice_vazeb = 0;
@@ -461,7 +456,7 @@ public class SpravaZamestnancov {
     	System.out.println("------------------------------------------------------");
     	System.out.println("Zaměstnanci s nejvíce (" + nejvice_vazeb +") vazbami:");
     	
-    	// Algoritmus na získání a vypsání nejvíce vazeb
+
     	for (Zamestnanec z: databaza.values()) {
     		int pocet_vazeb = 0;
     		for (UrovenSpoluprace uroven : z.getSpolupracovnici().values()) {
